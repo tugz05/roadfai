@@ -24,7 +24,8 @@ import {
   Users,
   Folder,
   BookOpen,
-  Route
+  Route,
+  DatabaseBackup
 } from 'lucide-vue-next';
 import AppLogo from './AppLogo.vue';
 
@@ -63,6 +64,11 @@ const mainNavItems: NavItem[] = [
     title: 'User Management',
     href: '/users',
     icon: Users,
+  },
+  {
+    title: 'Backup and Restore',
+    href: '/backup_and_restore',
+    icon: DatabaseBackup,
   },
 ];
 </script>

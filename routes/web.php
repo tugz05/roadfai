@@ -65,6 +65,10 @@ Route::get('dashboard', function () {
     Route::get('users', function () {
         return Inertia::render('UserManagement');
     })->name('users');
+    Route::get('backup_and_restore', function () {
+        return Inertia::render('BackupAndRestore');
+    })->name('backup_and_restore');
+
 });
 
 

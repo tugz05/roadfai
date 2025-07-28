@@ -163,11 +163,11 @@ const chartOptions = {
         class="aspect-square cursor-pointer rounded-xl border p-4 shadow-sm hover:shadow-md transition dark:border-sidebar-border flex flex-col justify-center items-center text-center"
         @click="$inertia.visit(card.href)"
       >
-        <div :class="['rounded-full p-4 mb-3', card.bg]">
+        <div :class="['rounded-full p-6 mb-4', card.bg]">
           <component :is="card.icon" class="h-6 w-6" :class="card.iconColor" />
         </div>
-        <h3 class="text-sm font-medium text-gray-600 dark:text-gray-400">{{ card.title }}</h3>
-        <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ card.value }}</p>
+        <h3 class="text-lg font-medium text-gray-600 dark:text-gray-400">{{ card.title }}</h3>
+        <p class="text-5xl font-bold text-gray-900 dark:text-white">{{ card.value }}</p>
       </div>
 
       <!-- Graph at full width -->

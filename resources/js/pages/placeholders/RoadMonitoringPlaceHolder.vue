@@ -10,6 +10,10 @@
         <span class="inline-block w-5 h-5 rounded-full animate-pulse bg-red-600 border-2 border-white"></span>
         <span class="text-xs text-red-700 font-bold">AI: Needs Urgent Repair</span>
       </span>
+      <span class="ml-5 flex items-center space-x-1">
+        <span class="inline-block w-5 h-5 rounded-full bg-blue-700 border-2 border-white"></span>
+        <span class="text-xs text-blue-900 font-bold">Photo Spot</span>
+      </span>
     </div>
     <!-- Filter UI -->
     <div class="flex flex-wrap gap-4 mb-3">
@@ -31,7 +35,6 @@ import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import mapboxgl from 'mapbox-gl';
 import * as toGeoJSON from '@tmcw/togeojson';
 import { DOMParser } from 'xmldom';
-import * as turf from '@turf/turf';
 
 interface KmlLayer {
   url: string;
@@ -53,6 +56,8 @@ const mapContainer = ref<HTMLDivElement | null>(null);
 let map: mapboxgl.Map | null = null;
 let highlightLayerId: string | null = null;
 let aiSignalMarkers: mapboxgl.Marker[] = [];
+let geoImageMarkers: mapboxgl.Marker[] = [];
+
 const aiSignals = [
   {
     lngLat: [126.204738, 9.063739],
@@ -77,6 +82,39 @@ const aiSignals = [
   }
 ];
 
+// 5 Geotagged images (change img path as needed)
+const geoImages = [
+  {
+    lngLat: [126.200758, 9.076834],
+    name: 'Tandag Baywalk',
+    location: 'Baywalk, Tandag City',
+    img: '/images/1.jpg',
+  },
+  {
+    lngLat: [126.200779, 9.073810],
+    name: 'Rotonda Junction',
+    location: 'Rotonda, Tandag City',
+    img: '/images/2.jpg',
+  },
+  {
+    lngLat: [126.206942, 9.056832],
+    name: 'Tandag Cathedral',
+    location: 'San Nicolas de Tolentino Cathedral',
+    img: '/images/3.jpg',
+  },
+  {
+    lngLat: [126.198989, 9.075719],
+    name: 'Gaisano Tandag',
+    location: 'Gaisano Capital, Tandag City',
+    img: '/images/4.jpg',
+  },
+  {
+    lngLat: [125.442245, 9.804001],
+    name: 'Barangay Mabua Road',
+    location: 'Mabua, Tandag City',
+    img: '/images/5.jpg',
+  }
+];
 
 const visibleLayers = ref<boolean[]>(props.kmlLayers.map(() => true));
 const layerIdMap = ref<{ [key: number]: string[] }>({});
@@ -95,15 +133,17 @@ function removeHighlightLayer() {
   if (map && map.getSource('highlighted-road')) {
     map.removeSource('highlighted-road');
   }
-  // Remove all AI signal markers (to clean up on reload/unmount)
+  // Remove all AI signal markers
   for (const m of aiSignalMarkers) m.remove();
   aiSignalMarkers = [];
+  // Remove all geo image markers
+  for (const m of geoImageMarkers) m.remove();
+  geoImageMarkers = [];
 }
 
-// Add animated signal markers (AI alerts)
+// Add animated AI markers
 function addAiSignalMarkers() {
-  removeHighlightLayer();
-  for (const [i, signal] of aiSignals.entries()) {
+  for (const signal of aiSignals) {
     let el = document.createElement('div');
     el.style.cursor = 'pointer';
     el.title = "Click for AI Road Analysis";
@@ -111,7 +151,7 @@ function addAiSignalMarkers() {
       <svg width="38" height="38" viewBox="0 0 38 38" class="animate-pulse">
         <circle cx="19" cy="19" r="18" fill="#ff3b30" fill-opacity="0.24"/>
         <circle cx="19" cy="19" r="12" fill="#ff3b30"/>
-        <text x="19" y="27" text-anchor="middle" font-size="20" font-family="Arial" fill="#fff" font-weight="bold">!</text>
+        <text x="19" y="27" text-anchor="middle" font-size="20" font-family="Arial" fill="#fff" font-weight="bold">⚠️</text>
       </svg>
     `;
     el.className = 'ai-alert-pulse';
@@ -126,7 +166,40 @@ function addAiSignalMarkers() {
   }
 }
 
-// Dummy AI popup for clicking a signal
+// Add photo markers
+function addGeoImageMarkers() {
+  for (const point of geoImages) {
+    const el = document.createElement('div');
+    el.title = point.name;
+    el.style.width = "34px";
+    el.style.height = "34px";
+    el.style.borderRadius = "50%";
+    el.style.boxShadow = "0 2px 6px #0002";
+    el.style.background = "#fff";
+    el.style.display = "flex";
+    el.style.alignItems = "center";
+    el.style.justifyContent = "center";
+    el.innerHTML = `
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+        <circle cx="16" cy="16" r="16" fill="#fff"/>
+        <circle cx="16" cy="16" r="14" fill="#2563eb" fill-opacity="0.15"/>
+        <path d="M10 22l6-8 6 8" stroke="#2563eb" stroke-width="2" fill="none"/>
+        <circle cx="16" cy="15" r="2" fill="#2563eb"/>
+      </svg>
+    `;
+    el.style.cursor = "pointer";
+    const marker = new mapboxgl.Marker(el).setLngLat(point.lngLat).addTo(map!);
+
+    marker.getElement().addEventListener('click', (e) => {
+      e.stopPropagation();
+      showGeoImagePopup(point);
+    });
+
+    geoImageMarkers.push(marker);
+  }
+}
+
+// AI signal popup
 function showAiSignalPopup(lngLat: [number, number], signal: any) {
   let html = `
     <div style="min-width:240px;max-width:350px;padding:13px 10px 11px 14px;background:#fff;border-radius:12px;box-shadow:0 6px 16px #0002;color:#1b1c1d;">
@@ -149,6 +222,22 @@ function showAiSignalPopup(lngLat: [number, number], signal: any) {
   new mapboxgl.Popup().setLngLat(lngLat).setHTML(html).addTo(map!);
 }
 
+// GeoImage popup
+function showGeoImagePopup(point: any) {
+  const html = `
+    <div style="min-width:240px;max-width:330px;padding:12px 10px 14px 10px;background:#fff;border-radius:13px;box-shadow:0 6px 18px #0002;">
+      <div style="font-size:1.05rem;font-weight:700;color:#2563eb;margin-bottom:6px;">
+        📸 ${point.name}
+      </div>
+      <div style="font-size:13px;font-weight:500;margin-bottom:7px;color:#666;">${point.location}</div>
+      <div style="text-align:center;">
+        <img src="${point.img}" style="border-radius:10px;box-shadow:0 1px 4px #0001;max-width:210px;max-height:120px;margin-bottom:7px;" alt="${point.name}">
+      </div>
+    </div>
+  `;
+  new mapboxgl.Popup().setLngLat(point.lngLat).setHTML(html).addTo(map!);
+}
+
 function formatPropertyTable(props: any): string {
   let table = '<table style="font-size:13px;width:100%;border-collapse:collapse;">';
   for (const [key, value] of Object.entries(props)) {
@@ -163,7 +252,6 @@ function formatPropertyTable(props: any): string {
   return table;
 }
 
-// Existing popup for other features
 function showFeaturePopup(e: any, feature: any, displayLength?: number) {
   const props = feature.properties;
   let title = props.name || props.NAME || props.roadname || props.RDNAME || 'Feature Info';
@@ -337,6 +425,7 @@ onMounted(async () => {
       }
     }
     addAiSignalMarkers();
+    addGeoImageMarkers();
   });
 });
 
@@ -345,6 +434,8 @@ onBeforeUnmount(() => {
   map = null;
   for (const m of aiSignalMarkers) m.remove();
   aiSignalMarkers = [];
+  for (const m of geoImageMarkers) m.remove();
+  geoImageMarkers = [];
 });
 </script>
 
@@ -358,4 +449,3 @@ onBeforeUnmount(() => {
   100% { opacity: 0.4; }
 }
 </style>
- 
