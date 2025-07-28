@@ -3,6 +3,7 @@ import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
 import mapboxgl from 'mapbox-gl';
+import Map from '@/pages/placeholders/Map.vue'
 import { Bar } from 'vue-chartjs';
 import {
   Chart as ChartJS,
@@ -52,10 +53,10 @@ const chartOptions = {
   plugins: {
     legend: {
       position: 'top',
-      labels: { color: '#6b7280' },
+      labels: { color: '#6b7 280' },
     },
   },
-  scales: {
+  scales: {  
     x: {
       ticks: { color: '#6b7280' },
       grid: { color: '#e5e7eb' },
@@ -136,8 +137,20 @@ onBeforeUnmount(() => {
       </p>
 
       <!-- Map container -->
-      <div ref="mapContainer" class="w-full h-[500px] rounded-lg border mb-6"></div>
-
+      <!-- <div ref="mapContainer" class="w-full h-[500px] rounded-lg border mb-6">
+        
+      </div> -->
+        <div class="relative min-h-[400px] flex-1 rounded-xl border p-2 border-sidebar-border/70 dark:border-sidebar-border">
+       <Map
+  :kml-layers="[
+    { url: '/kml/landuse_KML.kml', color: '#4094f7' },         // blue
+    { url: '/kml/TNDG_ROADNETWORKS_KML.kml', color: '#e76f51' }, // orange
+    { url: '/kml/tandag_purok_bndy.kml', color: '#43aa8b' },   // green
+    { url: '/kml/Tandag_CRIPS.kml', color: '#f9c846' },        // yellow/gold
+    { url: '/kml/Households_tandag.kml', color: '#ff3b30' }    // purple
+  ]"
+/>
+      </div>
       <!-- Filters -->
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
         <div>

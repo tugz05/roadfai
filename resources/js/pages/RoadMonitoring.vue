@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { Head } from '@inertiajs/vue3';
 import AppLayout from '@/layouts/AppLayout.vue';
 import Map from '@/pages/placeholders/Map.vue'
+import RoadMonitoringPlaceHolder from './placeholders/RoadMonitoringPlaceHolder.vue';
 
 // Filters
 const selectedBarangay = ref('All');
@@ -72,10 +73,11 @@ const paginatedSensors = computed(() => {
     <div class="p-6">
       <h1 class="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-100">Live Road Monitoring</h1>
         <div class="relative min-h-[400px] flex-1 rounded-xl border p-2 border-sidebar-border/70 dark:border-sidebar-border">
-        <Map
-                        :landuse-kml-url="'/kml/landuse_KML.kml'"
-                        :roads-kml-url="'/kml/TNDG_ROADNETWORKS_KML.kml'"
-                            />
+       <RoadMonitoringPlaceHolder
+  :kml-layers="[  // blue
+    { url: '/kml/TNDG_ROADNETWORKS_KML.kml', color: '#e76f51' }, // orange
+  ]"
+/>
       </div>
       <div class="mb-4">
         <label for="barangay" class="block mb-1 text-sm font-medium text-gray-700 dark:text-gray-300 mt-4">Filter by Barangay</label>

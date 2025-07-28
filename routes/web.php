@@ -3,6 +3,7 @@
 use App\Http\Controllers\ChatController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\File;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,12 +23,18 @@ Route::get('/', function () {
 */
 Route::middleware(['auth', 'verified'])->group(function () {
     // Dashboard
-    Route::get('dashboard', function () {
-        return Inertia::render('Dashboard', [
-            'landuseKmlUrl' => asset('kml/landuse_KML.kml'),
-            'roadsKmlUrl' => asset('kml/TNDG_ROADNETWORKS_KML.kml'),
-        ]);
-    })->name('dashboard');
+    
+Route::get('dashboard', function () {
+    $kmlFiles = [];
+    foreach (File::files(public_path('kml')) as $file) {
+        if ($file->getExtension() === 'kml') {
+            $kmlFiles[] = asset('kml/' . $file->getFilename());
+        }
+    }
+    return Inertia::render('Dashboard', [
+        'kmlUrls' => $kmlFiles,
+    ]);
+})->name('dashboard');
     Route::get('road_monitoring', function () {
         return Inertia::render('RoadMonitoring', [
             'landuseKmlUrl' => asset('kml/landuse_KML.kml'),
