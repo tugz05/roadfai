@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import Map from '@/pages/placeholders/Map.vue'
+import LivePreviewMap from './placeholders/LivePreviewMap.vue';
 </script>
 
 <template>
@@ -130,16 +131,20 @@ import Map from '@/pages/placeholders/Map.vue'
         </div>
       </section>
 
-      <!-- Live Monitoring Preview -->
-      <div class="bg-blue-50/80 text-center py-20 px-6 border-b border-gray-200">
-        <h2 class="text-2xl md:text-3xl font-bold text-blue-700 mb-5">Live Monitoring Preview</h2>
-        <div class="rounded-3xl max-w-5xl mx-auto h-72 md:h-96 bg-gradient-to-br from-white via-blue-100/80 to-blue-200/80 border-2 border-dashed border-sky-300/40 shadow-2xl flex items-center justify-center">
-          <Map
-            :landuse-kml-url="'/kml/landuse_KML.kml'"
-            :roads-kml-url="'/kml/TNDG_ROADNETWORKS_KML.kml'"
-          />
-        </div>
-      </div>
+<!-- Live Monitoring Preview -->
+<div class="bg-blue-50/80 text-center py-40 px-6 border-b border-gray-200">
+  <h2 class="text-2xl md:text-3xl font-bold text-blue-700 mb-5">Live Monitoring Preview</h2>
+  <div class="rounded-3xl max-w-5xl mx-auto h-72 md:h-100 bg-gradient-to-br from-white via-blue-100/80 to-blue-200/80 border-2 border-dashed border-sky-300/40 shadow-2xl">
+    <LivePreviewMap
+      :kml-layers="[
+        { url: '/kml/landuse_KML.kml', color: '#4094f7' },         // blue
+        { url: '/kml/TNDG_ROADNETWORKS_KML.kml', color: '#e76f51' }, // orange
+
+      ]"
+    />
+  </div>
+</div>
+
 
       <!-- Footer -->
       <footer class="bg-blue-50 text-center text-base text-gray-500 py-8 border-t border-gray-200 tracking-wide">

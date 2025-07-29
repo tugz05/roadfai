@@ -1,37 +1,5 @@
-<template>
-  <div>
-    <!-- Legend -->
-    <div class="flex flex-wrap gap-3 mb-3 items-center">
-      <div v-for="(layer, idx) in props.kmlLayers" :key="layer.url" class="flex items-center space-x-2">
-        <span class="inline-block w-5 h-5 rounded" :style="{ backgroundColor: layer.color, border: '1.5px solid #444' }"></span>
-        <span class="text-sm font-semibold">{{ getLayerLabel(layer.url) }}</span>
-      </div>
-      <span class="ml-5 flex items-center space-x-1">
-        <span class="inline-block w-5 h-5 rounded-full animate-pulse bg-red-600 border-2 border-white"></span>
-        <span class="text-xs text-red-700 font-bold">AI: Needs Urgent Repair</span>
-      </span>
-      <span class="ml-5 flex items-center space-x-1">
-        <span class="inline-block w-5 h-5 rounded-full bg-blue-700 border-2 border-white"></span>
-        <span class="text-xs text-blue-900 font-bold">Photo Spot</span>
-      </span>
-    </div>
-    <!-- Filter UI -->
-    <div class="flex flex-wrap gap-4 mb-3">
-      <label
-        v-for="(layer, idx) in props.kmlLayers"
-        :key="layer.url"
-        class="inline-flex items-center space-x-2"
-      >
-        <input type="checkbox" v-model="visibleLayers[idx]" @change="toggleLayerVisibility(idx)" />
-        <span :style="{ color: layer.color, fontWeight: 600 }">{{ getLayerLabel(layer.url) }}</span>
-      </label>
-    </div>
-    <div ref="mapContainer" class="w-full h-full min-h-[700px] rounded-xl border" />
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
 import mapboxgl from 'mapbox-gl';
 import * as toGeoJSON from '@tmcw/togeojson';
 import { DOMParser } from 'xmldom';
@@ -40,343 +8,160 @@ interface KmlLayer {
   url: string;
   color: string;
 }
-interface Props {
+const props = defineProps<{
   kmlLayers: KmlLayer[];
+  features: any[];
+  highlightFeature?: any | null;
   lat?: number;
   lng?: number;
   zoom?: number;
-}
-const props = defineProps<Props>();
+}>();
 
-const DEFAULT_LAT = 9.074968;
-const DEFAULT_LNG = 126.201170;
-const DEFAULT_ZOOM = 13;
+const DEFAULT_LAT = 8.9505;
+const DEFAULT_LNG = 125.5435;
+const DEFAULT_ZOOM = 12;
 
 const mapContainer = ref<HTMLDivElement | null>(null);
 let map: mapboxgl.Map | null = null;
-let highlightLayerId: string | null = null;
-let aiSignalMarkers: mapboxgl.Marker[] = [];
-let geoImageMarkers: mapboxgl.Marker[] = [];
-
-const aiSignals = [
-  {
-    lngLat: [126.204738, 9.063739],
-    name: 'Surigao - Davao Coastal Rd, Tago',
-    reason: 'Sensor flagged recurring subsurface movement and rutting. High traffic stress observed.',
-    forecast: 'Urgent rehabilitation advised within the year. Projected risk of major damage by next year.',
-    length: 1.5,
-  },
-  {
-    lngLat: [126.179418, 9.077682],
-    name: 'Surigao - Davao Coastal Rd, City of Tandag',
-    reason: 'Cracks detected and frequent patching observed in maintenance logs.',
-    forecast: 'Minor repairs needed immediately. Predicted to require full overlay by next year.',
-    length: 2.2,
-  },
-  {
-    lngLat: [126.167273, 9.085479],
-    name: 'Surigao - Davao Coastal Rd, City of Tandag (North)',
-    reason: 'Pothole expansion detected; accident risk rising.',
-    forecast: 'Patchwork likely insufficient. Major resurfacing needed within 12 months.',
-    length: 1.7,
-  }
-];
-
-// 5 Geotagged images (change img path as needed)
-const geoImages = [
-  {
-    lngLat: [126.200758, 9.076834],
-    name: 'Tandag Baywalk',
-    location: 'Baywalk, Tandag City',
-    img: '/images/1.jpg',
-  },
-  {
-    lngLat: [126.200779, 9.073810],
-    name: 'Rotonda Junction',
-    location: 'Rotonda, Tandag City',
-    img: '/images/2.jpg',
-  },
-  {
-    lngLat: [126.206942, 9.056832],
-    name: 'Tandag Cathedral',
-    location: 'San Nicolas de Tolentino Cathedral',
-    img: '/images/3.jpg',
-  },
-  {
-    lngLat: [126.198989, 9.075719],
-    name: 'Gaisano Tandag',
-    location: 'Gaisano Capital, Tandag City',
-    img: '/images/4.jpg',
-  },
-  {
-    lngLat: [125.442245, 9.804001],
-    name: 'Barangay Mabua Road',
-    location: 'Mabua, Tandag City',
-    img: '/images/5.jpg',
-  }
-];
-
-const visibleLayers = ref<boolean[]>(props.kmlLayers.map(() => true));
-const layerIdMap = ref<{ [key: number]: string[] }>({});
-
-function getLayerLabel(url: string) {
-  return url.split('/').pop()?.replace('.kml','').replace(/_/g, ' ') ?? url;
-}
+let statusMarkers: mapboxgl.Marker[] = [];
+let highlightMarker: mapboxgl.Marker | null = null;
 
 mapboxgl.accessToken = 'pk.eyJ1Ijoibm9vYnR1Z3oiLCJhIjoiY21kZHdvaDZ3MDkxMDJscHFjbTNzbWNkciJ9.pUXsJVW32G9zpHypFNT1-g';
 
-function removeHighlightLayer() {
-  if (map && highlightLayerId && map.getLayer(highlightLayerId)) {
-    map.removeLayer(highlightLayerId);
-    highlightLayerId = null;
-  }
-  if (map && map.getSource('highlighted-road')) {
-    map.removeSource('highlighted-road');
-  }
-  // Remove all AI signal markers
-  for (const m of aiSignalMarkers) m.remove();
-  aiSignalMarkers = [];
-  // Remove all geo image markers
-  for (const m of geoImageMarkers) m.remove();
-  geoImageMarkers = [];
+function removeAllMarkers() {
+  for (const m of statusMarkers) m.remove();
+  statusMarkers = [];
+  if (highlightMarker) highlightMarker.remove();
+  highlightMarker = null;
 }
 
-// Add animated AI markers
-function addAiSignalMarkers() {
-  for (const signal of aiSignals) {
-    let el = document.createElement('div');
-    el.style.cursor = 'pointer';
-    el.title = "Click for AI Road Analysis";
-    el.innerHTML = `
-      <svg width="38" height="38" viewBox="0 0 38 38" class="animate-pulse">
-        <circle cx="19" cy="19" r="18" fill="#ff3b30" fill-opacity="0.24"/>
-        <circle cx="19" cy="19" r="12" fill="#ff3b30"/>
-        <text x="19" y="27" text-anchor="middle" font-size="20" font-family="Arial" fill="#fff" font-weight="bold">⚠️</text>
-      </svg>
-    `;
-    el.className = 'ai-alert-pulse';
-    const marker = new mapboxgl.Marker(el)
-      .setLngLat(signal.lngLat)
-      .addTo(map!);
-    marker.getElement().addEventListener('click', (e) => {
-      e.stopPropagation();
-      showAiSignalPopup(signal.lngLat, signal);
-    });
-    aiSignalMarkers.push(marker);
-  }
-}
-
-// Add photo markers
-function addGeoImageMarkers() {
-  for (const point of geoImages) {
+function addStatusMarkers() {
+  removeAllMarkers();
+  for (const feature of props.features) {
+    let color = '#22c55e', animate = '';
+    if (feature.status === 'Hazard') { color = '#ef4444'; animate = 'blink 1s linear infinite'; }
+    else if (feature.status === 'Needs Maintenance') { color = '#f59e42'; animate = 'pulse 1.4s infinite'; }
+    else if (feature.status === 'Offline') { color = '#64748b'; animate = 'blink 2s linear infinite'; }
     const el = document.createElement('div');
-    el.title = point.name;
-    el.style.width = "34px";
-    el.style.height = "34px";
-    el.style.borderRadius = "50%";
-    el.style.boxShadow = "0 2px 6px #0002";
-    el.style.background = "#fff";
-    el.style.display = "flex";
-    el.style.alignItems = "center";
-    el.style.justifyContent = "center";
-    el.innerHTML = `
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-        <circle cx="16" cy="16" r="16" fill="#fff"/>
-        <circle cx="16" cy="16" r="14" fill="#2563eb" fill-opacity="0.15"/>
-        <path d="M10 22l6-8 6 8" stroke="#2563eb" stroke-width="2" fill="none"/>
-        <circle cx="16" cy="15" r="2" fill="#2563eb"/>
-      </svg>
-    `;
-    el.style.cursor = "pointer";
-    const marker = new mapboxgl.Marker(el).setLngLat(point.lngLat).addTo(map!);
+    el.className = 'custom-blink-marker';
+    el.style.width = '26px';
+    el.style.height = '26px';
+    el.style.borderRadius = '50%';
+    el.style.background = color;
+    el.style.boxShadow = '0 0 0 4px #fff';
+    el.style.animation = animate;
+    el.style.border = '2.5px solid #fff';
+    el.title = feature.roadName + ' - ' + feature.status;
+    if (feature.status === 'Hazard') {
+      el.innerHTML = `<svg width="20" height="20" style="margin:2px 3px;" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#fff7" /><path d="M12 6v6" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1" fill="#ef4444"/></svg>`;
+    }
+    const marker = new mapboxgl.Marker(el)
+      .setLngLat(feature.center)
+      .addTo(map!);
 
     marker.getElement().addEventListener('click', (e) => {
       e.stopPropagation();
-      showGeoImagePopup(point);
+      showPopup(feature);
     });
-
-    geoImageMarkers.push(marker);
+    statusMarkers.push(marker);
   }
 }
 
-// AI signal popup
-function showAiSignalPopup(lngLat: [number, number], signal: any) {
+function showPopup(feature: any) {
   let html = `
-    <div style="min-width:240px;max-width:350px;padding:13px 10px 11px 14px;background:#fff;border-radius:12px;box-shadow:0 6px 16px #0002;color:#1b1c1d;">
-      <div style="font-size:1.1rem;font-weight:700;margin-bottom:8px;color:#ff3b30">
-        <svg style="width:1.4em;height:1.4em;vertical-align:-3px;display:inline" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#ff3b30" fill-opacity="0.14"/><circle cx="12" cy="12" r="6" fill="#ff3b30"/><text x="12" y="17" text-anchor="middle" font-size="14" font-family="Arial" fill="#fff" font-weight="bold">!</text></svg>
-        AI Road Analysis
-      </div>
-      <div style="font-size:1.06rem;font-weight:700;margin-bottom:7px;">
-        <span>${signal.name}</span>
-      </div>
-      <div style="margin-bottom:6px;font-size:13px;">
-        <b>Length covered:</b> <span style="color:#4094f7;font-weight:600;">${signal.length} km</span>
-      </div>
-      <div style="margin-bottom:7px;font-size:13px;"><b>AI Reason:</b> ${signal.reason}</div>
-      <div style="margin-bottom:8px;font-size:13px;">
-        <b>AI Forecast (next year):</b> <span>${signal.forecast}</span>
-      </div>
-    </div>
+    <div style="font-weight:700;font-size:1.07rem;margin-bottom:5px;">${feature.roadName}</div>
+    <div style="font-size:13px;"><b>Status:</b> <span style="color:${feature.status === 'Hazard' ? '#ef4444' : feature.status === 'Needs Maintenance' ? '#f59e42' : '#22c55e'};">${feature.status}</span></div>
+    <div style="font-size:13px;"><b>Type:</b> ${feature.roadType}</div>
+    <div style="font-size:13px;"><b>Location:</b> ${feature.location}</div>
+    <div style="font-size:13px;"><b>Barangay:</b> ${feature.barangay}</div>
+    <div style="font-size:13px;"><b>Last Updated:</b> ${feature.lastUpdated}</div>
+    <div style="font-size:13px;"><b>Sensor Data:</b> Cracks: ${feature.sensor?.cracks ?? 'n/a'} | Traffic: ${feature.sensor?.traffic ?? 'n/a'} | Temp: ${feature.sensor?.temp ?? 'n/a'}</div>
+    <div style="font-size:13px;margin:8px 0 5px 0;"><b>AI Analysis:</b> <span style="color:#3b82f6">${feature.aiAnalysis}</span></div>
+    <div style="font-size:13px;"><b>Geotagged Photos:</b><div style="display:flex;gap:6px;margin-top:5px;">${
+      feature.photos?.map((photo:any) => `<img src="${photo.img}" alt="${photo.name}" title="${photo.name}" style="width:80px;height:56px;border-radius:7px;object-fit:cover;border:1px solid #eee;">`).join('')
+    }</div></div>
   `;
-  new mapboxgl.Popup().setLngLat(lngLat).setHTML(html).addTo(map!);
+  new mapboxgl.Popup().setLngLat(feature.center).setHTML(html).addTo(map!);
 }
 
-// GeoImage popup
-function showGeoImagePopup(point: any) {
-  const html = `
-    <div style="min-width:240px;max-width:330px;padding:12px 10px 14px 10px;background:#fff;border-radius:13px;box-shadow:0 6px 18px #0002;">
-      <div style="font-size:1.05rem;font-weight:700;color:#2563eb;margin-bottom:6px;">
-        📸 ${point.name}
-      </div>
-      <div style="font-size:13px;font-weight:500;margin-bottom:7px;color:#666;">${point.location}</div>
-      <div style="text-align:center;">
-        <img src="${point.img}" style="border-radius:10px;box-shadow:0 1px 4px #0001;max-width:210px;max-height:120px;margin-bottom:7px;" alt="${point.name}">
-      </div>
-    </div>
-  `;
-  new mapboxgl.Popup().setLngLat(point.lngLat).setHTML(html).addTo(map!);
-}
+// Focus to highlighted feature when it changes
+watch(() => props.highlightFeature, (feature) => {
+  if (!map || !feature) return;
+  if (highlightMarker) highlightMarker.remove();
+  const el = document.createElement('div');
+  el.style.width = '40px';
+  el.style.height = '40px';
+  el.style.borderRadius = '50%';
+  el.style.background = 'rgba(59,130,246,0.17)';
+  el.style.boxShadow = '0 0 0 12px #3b82f6bb';
+  el.style.border = '3px solid #2563eb';
+  highlightMarker = new mapboxgl.Marker(el).setLngLat(feature.center).addTo(map!);
+  map.flyTo({
+    center: feature.center,
+    zoom: 16,
+    speed: 1.3,
+    curve: 1,
+    essential: true
+  });
+  showPopup(feature);
+});
 
-function formatPropertyTable(props: any): string {
-  let table = '<table style="font-size:13px;width:100%;border-collapse:collapse;">';
-  for (const [key, value] of Object.entries(props)) {
-    table += `
-      <tr>
-        <td style="font-weight:600;padding:4px 12px 4px 0;text-align:right;vertical-align:top;white-space:nowrap;color:#0074d9;">${key}:</td>
-        <td style="padding:4px 0;text-align:left;">${value ?? '<span style=\'color:#aaa;\'>N/A</span>'}</td>
-      </tr>
-    `;
-  }
-  table += '</table>';
-  return table;
-}
-
-function showFeaturePopup(e: any, feature: any, displayLength?: number) {
-  const props = feature.properties;
-  let title = props.name || props.NAME || props.roadname || props.RDNAME || 'Feature Info';
-  let html = `
-    <div style="min-width:240px;max-width:340px;padding:12px 10px;background:#fff;border-radius:12px;box-shadow:0 6px 16px #0001;color:#222;">
-      <div style="font-size:1rem;font-weight:700;margin-bottom:6px;border-bottom:1px solid #e7e7e7;padding-bottom:3px;letter-spacing:.2px;">
-        ${title}
-      </div>
-      ${displayLength !== undefined ? `
-      <div style="margin-bottom:8px;font-size:13px;">
-        <b>Length covered:</b> 
-        <span style="color:#ff3b30;font-weight:600;">
-          ${displayLength >= 1
-            ? displayLength.toLocaleString(undefined, {maximumFractionDigits:2}) + ' km'
-            : Math.round(displayLength * 1000) + ' m'}
-        </span>
-      </div>` : ''}
-      ${formatPropertyTable(props)}
-    </div>
-  `;
-
-  let lngLat = e.lngLat;
-  if (feature.geometry.type !== "Point" && feature.geometry.coordinates) {
-    try {
-      if (feature.geometry.type === "LineString")
-        lngLat = feature.geometry.coordinates[Math.floor(feature.geometry.coordinates.length / 2)];
-      else if (feature.geometry.type === "Polygon")
-        lngLat = feature.geometry.coordinates[0][0];
-      else if (feature.geometry.type === "MultiPolygon")
-        lngLat = feature.geometry.coordinates[0][0][0];
-      else if (feature.geometry.type === "MultiLineString")
-        lngLat = feature.geometry.coordinates[0][Math.floor(feature.geometry.coordinates[0].length / 2)];
-    } catch {}
-  }
-  new mapboxgl.Popup()
-    .setLngLat(lngLat)
-    .setHTML(html)
-    .addTo(map!);
-}
-
-function toggleLayerVisibility(idx: number) {
-  if (!map || !layerIdMap.value[idx]) return;
-  const vis = visibleLayers.value[idx] ? 'visible' : 'none';
-  for (const lid of layerIdMap.value[idx]) {
-    if (map.getLayer(lid)) {
-      map.setLayoutProperty(lid, 'visibility', vis);
-    }
-  }
-}
-
-watch([visibleLayers, layerIdMap], ([visibleVal, mapVal]) => {
-  if (!map) return;
-  Object.entries(mapVal).forEach(([idxStr, ids]) => {
-    const idx = Number(idxStr);
-    const vis = visibleVal[idx] ? 'visible' : 'none';
-    for (const lid of ids) {
-      if (map.getLayer(lid)) {
-        map.setLayoutProperty(lid, 'visibility', vis);
+onMounted(async () => {
+  if (!mapContainer.value) return;
+  map = new mapboxgl.Map({
+    container: mapContainer.value,
+    style: 'mapbox://styles/mapbox/satellite-streets-v11',
+    center: [props.lng ?? DEFAULT_LNG, props.lat ?? DEFAULT_LAT],
+    zoom: props.zoom ?? DEFAULT_ZOOM,
+  });
+  map.addControl(new mapboxgl.NavigationControl());
+  map.on('load', async () => {
+    if (props.kmlLayers && props.kmlLayers.length) {
+      for (let i = 0; i < props.kmlLayers.length; i++) {
+        const { url, color } = props.kmlLayers[i];
+        await loadKmlDynamicLayer(i, url, color);
       }
     }
+    addStatusMarkers();
   });
+});
+onBeforeUnmount(() => {
+  removeAllMarkers();
+  map?.remove();
+  map = null;
 });
 
 async function loadKmlDynamicLayer(idx: number, kmlUrl: string, color: string) {
   const id = `kml-${idx}`;
   const res = await fetch(kmlUrl);
   const kmlText = await res.text();
-
   const parser = new DOMParser();
   const kmlDoc = parser.parseFromString(kmlText, 'text/xml');
   const geojson = toGeoJSON.kml(kmlDoc);
-
   if (!geojson.features.length) return;
-
-  map!.addSource(id, {
-    type: 'geojson',
-    data: geojson,
-  });
-
+  map!.addSource(id, { type: 'geojson', data: geojson });
   const firstGeom = geojson.features[0].geometry?.type;
-  const layerIds: string[] = [];
-
   if (firstGeom === 'Polygon' || firstGeom === 'MultiPolygon') {
     map!.addLayer({
       id: `${id}-fill`,
       type: 'fill',
       source: id,
-      paint: {
-        'fill-color': color,
-        'fill-opacity': 0.5,
-      },
-      layout: { visibility: visibleLayers.value[idx] ? 'visible' : 'none' }
+      paint: { 'fill-color': color, 'fill-opacity': 0.32 }
     });
     map!.addLayer({
       id: `${id}-border`,
       type: 'line',
       source: id,
-      paint: {
-        'line-color': '#1a2637',
-        'line-width': 1.5,
-      },
-      layout: { visibility: visibleLayers.value[idx] ? 'visible' : 'none' }
+      paint: { 'line-color': '#1a2637', 'line-width': 1.3 }
     });
-    map!.on('click', `${id}-fill`, (e) => { removeHighlightLayer(); showFeaturePopup(e, e.features[0]); });
-    map!.on('click', `${id}-border`, (e) => { removeHighlightLayer(); showFeaturePopup(e, e.features[0]); });
-    map!.on('mouseenter', `${id}-fill`, () => map!.getCanvas().style.cursor = 'pointer');
-    map!.on('mouseleave', `${id}-fill`, () => map!.getCanvas().style.cursor = '');
-    layerIds.push(`${id}-fill`, `${id}-border`);
   }
   if (firstGeom === 'LineString' || firstGeom === 'MultiLineString') {
     map!.addLayer({
       id: `${id}-line`,
       type: 'line',
       source: id,
-      paint: {
-        'line-color': color,
-        'line-width': 3,
-        'line-dasharray': [2, 2],
-      },
-      layout: { visibility: visibleLayers.value[idx] ? 'visible' : 'none' }
+      paint: { 'line-color': color, 'line-width': 3, 'line-dasharray': [2, 2] }
     });
-    map!.on('click', `${id}-line`, (e) => { removeHighlightLayer(); showFeaturePopup(e, e.features[0]); });
-    map!.on('mouseenter', `${id}-line`, () => map!.getCanvas().style.cursor = 'pointer');
-    map!.on('mouseleave', `${id}-line`, () => map!.getCanvas().style.cursor = '');
-    layerIds.push(`${id}-line`);
   }
   if (firstGeom === 'Point' || firstGeom === 'MultiPoint') {
     map!.addLayer({
@@ -388,64 +173,18 @@ async function loadKmlDynamicLayer(idx: number, kmlUrl: string, color: string) {
         'circle-radius': 4,
         'circle-stroke-width': 1,
         'circle-stroke-color': '#fff',
-      },
-      layout: { visibility: visibleLayers.value[idx] ? 'visible' : 'none' }
-    });
-    map!.on('click', `${id}-points`, (e) => { removeHighlightLayer(); showFeaturePopup(e, e.features[0]); });
-    map!.on('mouseenter', `${id}-points`, () => map!.getCanvas().style.cursor = 'pointer');
-    map!.on('mouseleave', `${id}-points`, () => map!.getCanvas().style.cursor = '');
-    layerIds.push(`${id}-points`);
-  }
-
-  layerIdMap.value = { ...layerIdMap.value, [idx]: layerIds };
-  nextTick(() => toggleLayerVisibility(idx));
-}
-
-onMounted(async () => {
-  if (!mapContainer.value) return;
-
-  const lat = props.lat ?? DEFAULT_LAT;
-  const lng = props.lng ?? DEFAULT_LNG;
-  const zoom = props.zoom ?? DEFAULT_ZOOM;
-
-  map = new mapboxgl.Map({
-    container: mapContainer.value,
-    style: 'mapbox://styles/mapbox/satellite-streets-v11',
-    center: [lng, lat],
-    zoom,
-  });
-
-  map.addControl(new mapboxgl.NavigationControl());
-
-  map.on('load', async () => {
-    if (props.kmlLayers && props.kmlLayers.length) {
-      for (let i = 0; i < props.kmlLayers.length; i++) {
-        const { url, color } = props.kmlLayers[i];
-        await loadKmlDynamicLayer(i, url, color);
       }
-    }
-    addAiSignalMarkers();
-    addGeoImageMarkers();
-  });
-});
-
-onBeforeUnmount(() => {
-  map?.remove();
-  map = null;
-  for (const m of aiSignalMarkers) m.remove();
-  aiSignalMarkers = [];
-  for (const m of geoImageMarkers) m.remove();
-  geoImageMarkers = [];
-});
+    });
+  }
+}
 </script>
 
+<template>
+  <div ref="mapContainer" class="w-full h-[400px] md:h-[600px] rounded-xl border" />
+</template>
+
 <style>
-.ai-alert-pulse svg {
-  animation: pulse 1.6s infinite;
-}
-@keyframes pulse {
-  0% { opacity: 0.4; }
-  50% { opacity: 1; }
-  100% { opacity: 0.4; }
-}
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.2; } }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 #f59e4290; } 50% { box-shadow: 0 0 0 12px #f59e4200; } 100% { box-shadow: 0 0 0 0 #f59e4290; } }
+.custom-blink-marker { transition: box-shadow 0.18s; }
 </style>

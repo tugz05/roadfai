@@ -56,7 +56,7 @@ const chartOptions = {
       labels: { color: '#6b7 280' },
     },
   },
-  scales: {  
+  scales: {
     x: {
       ticks: { color: '#6b7280' },
       grid: { color: '#e5e7eb' },
@@ -138,16 +138,15 @@ onBeforeUnmount(() => {
 
       <!-- Map container -->
       <!-- <div ref="mapContainer" class="w-full h-[500px] rounded-lg border mb-6">
-        
+
       </div> -->
         <div class="relative min-h-[400px] flex-1 rounded-xl border p-2 border-sidebar-border/70 dark:border-sidebar-border">
        <Map
   :kml-layers="[
-    { url: '/kml/landuse_KML.kml', color: '#4094f7' },         // blue
-    { url: '/kml/TNDG_ROADNETWORKS_KML.kml', color: '#e76f51' }, // orange
-    { url: '/kml/tandag_purok_bndy.kml', color: '#43aa8b' },   // green
-    { url: '/kml/Tandag_CRIPS.kml', color: '#f9c846' },        // yellow/gold
-    { url: '/kml/Households_tandag.kml', color: '#ff3b30' }    // purple
+    { url: '/kml/butuan/bxu_brgy_boundary.kml', color: '#4094f7' },         // blue
+    { url: '/kml/butuan/bxu_waterways.kml', color: '#e76f51' }, // orange
+    { url: '/kml/butuan/bxu_roadnetworks.kml', color: '#43aa8b' },   // green
+
   ]"
 />
       </div>

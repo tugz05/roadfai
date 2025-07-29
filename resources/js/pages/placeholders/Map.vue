@@ -56,9 +56,9 @@ interface Props {
 }
 const props = defineProps<Props>();
 
-const DEFAULT_LAT = 9.074968;
-const DEFAULT_LNG = 126.201170;
-const DEFAULT_ZOOM = 13;
+const DEFAULT_LAT = 8.9505;
+const DEFAULT_LNG = 125.5435;
+const DEFAULT_ZOOM = 11;
 
 const mapContainer = ref<HTMLDivElement | null>(null);
 let map: mapboxgl.Map | null = null;
@@ -136,7 +136,7 @@ function showFeaturePopup(e: any, feature: any, displayLength?: number) {
       </div>
       ${displayLength !== undefined ? `
       <div style="margin-bottom:8px;font-size:13px;">
-        <b>Length covered:</b> 
+        <b>Length covered:</b>
         <span style="color:#ff3b30;font-weight:600;">
           ${displayLength >= 1
             ? displayLength.toLocaleString(undefined, {maximumFractionDigits:2}) + ' km'
