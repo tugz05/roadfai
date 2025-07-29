@@ -18,5 +18,17 @@ class KmlController extends Controller
             'Content-Type' => 'application/vnd.google-earth.kml+xml',
         ]);
     }
+    public function serveKml2()
+    {
+        $filePath = public_path('kml/butuan/bxu_zones.kml');
+
+        if (!file_exists($filePath)) {
+            return response()->json(['error' => 'KML file not found'], 404);
+        }
+
+        return Response::make(file_get_contents($filePath), 200, [
+            'Content-Type' => 'application/vnd.google-earth.kml+xml',
+        ]);
+    }
 }
 

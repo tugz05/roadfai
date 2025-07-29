@@ -71,6 +71,7 @@ Route::get('dashboard', function () {
 
 });
 Route::get('/api/kml/bxu-brgy-boundary', [KmlController::class, 'serveKml']);
+Route::get('/api/kml/bxu-zones', [KmlController::class, 'serveKml2']);
 
 
 require __DIR__ . '/settings.php';
