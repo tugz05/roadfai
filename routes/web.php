@@ -4,7 +4,7 @@ use App\Http\Controllers\ChatController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\File;
-
+use App\Http\Controllers\KmlController;
 /*
 |--------------------------------------------------------------------------
 | Public Routes
@@ -23,7 +23,7 @@ Route::get('/', function () {
 */
 Route::middleware(['auth', 'verified'])->group(function () {
     // Dashboard
-    
+
 Route::get('dashboard', function () {
     $kmlFiles = [];
     foreach (File::files(public_path('kml')) as $file) {
@@ -70,6 +70,7 @@ Route::get('dashboard', function () {
     })->name('backup_and_restore');
 
 });
+Route::get('/api/kml/bxu-brgy-boundary', [KmlController::class, 'serveKml']);
 
 
 require __DIR__ . '/settings.php';
