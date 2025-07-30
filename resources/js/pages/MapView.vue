@@ -132,9 +132,6 @@ onBeforeUnmount(() => {
   <AppLayout>
     <div class="p-6">
       <h1 class="text-2xl font-bold mb-4 text-gray-800 dark:text-gray-100">Interactive Map View</h1>
-      <p class="mb-4 text-sm text-gray-600 dark:text-gray-300">
-        View road network status in Butuan City with integrated AI risk analytics and simulated zone interaction.
-      </p>
 
       <!-- Map container -->
       <!-- <div ref="mapContainer" class="w-full h-[500px] rounded-lg border mb-6">
